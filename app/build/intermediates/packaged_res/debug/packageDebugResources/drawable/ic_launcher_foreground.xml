@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer ring track -->
+    <path
+        android:strokeWidth="4"
+        android:strokeColor="#1e1e2e"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M54,54 m-34,0 a34,34 0 1,0 68,0 a34,34 0 1,0 -68,0" />
+
+    <!-- Green arc (75% filled) -->
+    <path
+        android:strokeWidth="4"
+        android:strokeColor="#00e5a0"
+        android:fillColor="@android:color/transparent"
+        android:strokeLineCap="round"
+        android:pathData="M54,20 A34,34 0 1,1 22.5,71" />
+
+    <!-- JS letters -->
+    <path
+        android:fillColor="#00e5a0"
+        android:pathData="M38,62 L38,44 L43,44 L43,60 Q43,65 38,65 Q34,65 33,62 L37,60 Q37,62 38,62 Z
+                          M47,62 L51,60 Q52,64 56,64 Q59,64 59,62 Q59,60 54,59 Q48,57 48,52 Q48,47 54,47 Q59,47 61,51 L57,53 Q56,50 54,50 Q52,50 52,52 Q52,54 57,55 Q63,57 63,62 Q63,67 56,67 Q50,67 47,62 Z" />
+</vector>
