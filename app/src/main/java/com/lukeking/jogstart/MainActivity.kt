@@ -1,12 +1,13 @@
 package com.lukeking.jogstart
 
 import android.annotation.SuppressLint
+import android.app.SearchManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
@@ -108,13 +109,14 @@ class MainActivity : AppCompatActivity() {
 
         /**
          * Called by the web app when jogging is detected.
-         * Launches YouTube Music native app directly via startActivity().
-         * No user gesture required — this is native Android code.
+         * Launches YouTube Music and starts playback immediately.
+         * @param query Optional search query e.g. "running music".
+         *              Pass empty string to play the smart default (last playlist).
          */
         @JavascriptInterface
-        fun launchYouTubeMusic() {
+        fun launchYouTubeMusic(query: String = "") {
             runOnUiThread {
-                openYouTubeMusic()
+                openYouTubeMusic(query)
             }
         }
 
@@ -143,38 +145,75 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ── Open YouTube Music ─────────────────────────────────────
-    private fun openYouTubeMusic() {
-        // Strategy 1: launch the app directly by package name.
-        // This is instant, no disambiguation dialog, no gesture needed.
-        val launchIntent = packageManager.getLaunchIntentForPackage(YTM_PACKAGE)
-        if (launchIntent != null) {
-            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(launchIntent)
-            android.util.Log.d("JogStart", "YouTube Music launched via getLaunchIntent")
-            return
+    // ── Open YouTube Music and START PLAYBACK IMMEDIATELY ─────
+    //
+    // Strategy 1 — MEDIA_PLAY_FROM_SEARCH targeted at YouTube Music.
+    //   This is the standard Android inter-app "play music now" intent.
+    //   With an empty query and no EXTRA_MEDIA_FOCUS, YouTube Music
+    //   plays a smart default: the last playlist/mix the user listened to.
+    //   You can also pass a query like "running music" or "energetic" to
+    //   search YTM's library and play matching results immediately.
+    //
+    // Strategy 2 — getLaunchIntentForPackage fallback.
+    //   If YTM doesn't handle the search intent (shouldn't happen but safe),
+    //   just open the app and let it resume whatever was playing.
+    //
+    // Strategy 3 — Play Store, if YTM isn't installed at all.
+    //
+    private fun openYouTubeMusic(searchQuery: String = "") {
+        // ── Strategy 1: play-from-search ──────────────────────
+        try {
+            val searchIntent = Intent(MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH).apply {
+                // Target YouTube Music specifically — without this it might
+                // open a different music app if one is also installed.
+                setPackage(YTM_PACKAGE)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+                if (searchQuery.isNotBlank()) {
+                    // Play something matching the query (e.g. "running music")
+                    putExtra(MediaStore.EXTRA_MEDIA_FOCUS, "vnd.android.cursor.item/*")
+                    putExtra(SearchManager.QUERY, searchQuery)
+                } else {
+                    // Empty query = "play something smart" — YTM picks the
+                    // last/recommended playlist automatically.
+                    putExtra(MediaStore.EXTRA_MEDIA_FOCUS, "vnd.android.cursor.item/*")
+                    putExtra(SearchManager.QUERY, "")
+                }
+            }
+
+            // Check if YTM can handle this intent before firing
+            val resolves = packageManager.queryIntentActivities(searchIntent, 0)
+            if (resolves.isNotEmpty()) {
+                startActivity(searchIntent)
+                android.util.Log.d("JogStart", "YTM launched via MEDIA_PLAY_FROM_SEARCH (query='$searchQuery')")
+                return
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("JogStart", "play-from-search failed: ${e.message}")
         }
 
-        // Strategy 2: implicit intent with music.youtube.com URL.
-        // Android will offer YouTube Music if installed.
+        // ── Strategy 2: plain launch (resumes last session) ───
         try {
-            val uri = Uri.parse(YTM_FALLBACK)
-            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val launchIntent = packageManager.getLaunchIntentForPackage(YTM_PACKAGE)
+            if (launchIntent != null) {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(launchIntent)
+                android.util.Log.d("JogStart", "YTM launched via getLaunchIntent (no auto-play)")
+                return
             }
-            startActivity(intent)
-            android.util.Log.d("JogStart", "YouTube Music launched via ACTION_VIEW")
+        } catch (e: Exception) {
+            android.util.Log.w("JogStart", "getLaunchIntent failed: ${e.message}")
+        }
+
+        // ── Strategy 3: open Play Store ───────────────────────
+        try {
+            val storeIntent = Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("market://details?id=$YTM_PACKAGE")
+            ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+            startActivity(storeIntent)
         } catch (e: ActivityNotFoundException) {
-            // Strategy 3: open Play Store page for YouTube Music.
-            try {
-                val playIntent = Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse("market://details?id=$YTM_PACKAGE")
-                ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-                startActivity(playIntent)
-            } catch (e2: ActivityNotFoundException) {
-                android.util.Log.e("JogStart", "Could not open YouTube Music or Play Store")
-            }
+            android.util.Log.e("JogStart", "Could not open Play Store either")
         }
     }
 
