@@ -19,6 +19,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import com.lukeking.jogstart.databinding.ActivityMainBinding
 
@@ -139,6 +140,17 @@ class MainActivity : AppCompatActivity() {
         // Pre-connect on app start so the browser is ready when jogging fires.
         // This means zero delay between detection and playback starting.
         if (isYtmInstalled()) connectMediaBrowser()
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (binding.webView.canGoBack()) {
+                    binding.webView.goBack()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
     }
 
     override fun onDestroy() {
@@ -226,10 +238,5 @@ class MainActivity : AppCompatActivity() {
                     .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
             )
         } catch (e: Exception) { fallbackLaunch() }
-    }
-
-    override fun onBackPressed() {
-        if (binding.webView.canGoBack()) binding.webView.goBack()
-        else super.onBackPressed()
     }
 }
